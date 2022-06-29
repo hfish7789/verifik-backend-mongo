@@ -10,41 +10,46 @@ dotenv.config();
 exports.signup = async (req, res) => {
     try {
         const { name, email, password, phone, countryCode, agreements } = req.body;
-        const oldUser_email = await User.findOne({ email });
-        const oldUser_phone = await User.findOne({ phone });
-
-        if (oldUser_email || oldUser_phone) {
-            res.status(409).send("User Already Exist. Please Login");
+        
+        if (phone.replace(/\+/g, "").slice(0, 2) != countryCode.replace(/\+/g, "")) {
+            res.status(400).send("Incorrect phone number");
         } else {
-            const encryptedPassword = await bcrypt.hash(password, 10);
-
-            const user = await User.create({
-                name,
-                email: email.toLowerCase(),
-                password: encryptedPassword,
-                phone,
-                countryCode,
-                agreements,
-            });
-
-            const token = jwt.sign(
-                {
-                    user_id: user._id,
-                    name: user.name,
-                    email: user.email,
-                    password: user.password,
-                    phone: user.phone,
-                    countryCode: user.countryCode,
-                    agreements: user.agreements,
-                },
-                process.env.TOKEN_SECRET,
-                {
-                    expiresIn: "2h",
-                }
-            );
-
-            user.token = token;
-            res.json({ user, accessToken: token });
+            const oldUser_email = await User.findOne({ email });
+            const oldUser_phone = await User.findOne({ phone: phone.replace(/\+/g, "") });
+    
+            if (oldUser_email || oldUser_phone) {
+                res.status(409).send("User Already Exist. Please Login");
+            } else {
+                const encryptedPassword = await bcrypt.hash(password, 10);
+    
+                const user = await User.create({
+                    name,
+                    email: email.toLowerCase(),
+                    password: encryptedPassword,
+                    phone: phone.replace(/\+/g, ""),
+                    countryCode,
+                    agreements,
+                });
+    
+                const token = jwt.sign(
+                    {
+                        user_id: user._id,
+                        name: user.name,
+                        email: user.email,
+                        password: user.password,
+                        phone: user.phone,
+                        countryCode: user.countryCode,
+                        agreements: user.agreements,
+                    },
+                    process.env.TOKEN_SECRET,
+                    {
+                        expiresIn: "2h",
+                    }
+                );
+    
+                user.token = token;
+                res.status(200).json({ user, accessToken: token });
+            }
         }
     } catch (err) {
         console.log(err);
@@ -54,7 +59,7 @@ exports.signup = async (req, res) => {
 exports.signin = async (req, res) => {
     try {
         const { phone, password } = req.body;
-        const user = await User.findOne({ phone });
+        const user = await User.findOne({ phone: phone.replace(/\+/g, "") });
 
         if (user && (await bcrypt.compare(password, user.password))) {
             const token = jwt.sign(
@@ -74,7 +79,7 @@ exports.signin = async (req, res) => {
             );
 
             user.token = token;
-            res.json({ user: user, accessToken: token });
+            res.status(200).json({ user: user, accessToken: token });
         } else {
             res.status(400).send("Invalid Credentials");
         }
@@ -84,27 +89,35 @@ exports.signin = async (req, res) => {
 };
 
 exports.forgotPassword = async (req, res) => {
-    const { phone } = req.body;
-    const user = await User.findOne({ phone });
+    try {
+        const { phone } = req.body;
+        const user = await User.findOne({ phone: phone.replace(/\+/g, "") });
 
-    if (user) {
-        res.status(200).json({});
-    } else {
-        res.status(400).send("Not Found");
+        if (user) {
+            res.status(200).json({});
+        } else {
+            res.status(400).send("Not Found");
+        }
+    } catch (err) {
+        console.log(err);
     }
 };
 
 exports.resetPassword = async (req, res) => {
-    const { phone, password } = req.body;
-    const encryptedPassword = await bcrypt.hash(password, 10);
-    const newvalues = { password: encryptedPassword };
+    try {
+        const { phone, password } = req.body;
+        const encryptedPassword = await bcrypt.hash(password, 10);
+        const newvalues = { password: encryptedPassword };
 
-    User.findOneAndUpdate(
-        { phone: "+" + phone.toString() },
-        newvalues,
-        function (err) {
-            if (err) throw err;
-            res.status(200).json({});
-        }
-    );
+        User.findOneAndUpdate(
+            { phone: phone.toString().replace(/\+/g, "") },
+            newvalues,
+            function (err) {
+                if (err) throw err;
+                res.status(200).json({});
+            }
+        );
+    } catch (err) {
+        console.log(err);
+    }
 };
