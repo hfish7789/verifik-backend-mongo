@@ -1,8 +1,8 @@
 # MongoDB download & install
-download in follow link
+Please download & install in follow link
 https://www.filehorse.com/download-mongodb/download/
 
-# How to install
+# How to install node_modules
 ```
 npm i
 ```
